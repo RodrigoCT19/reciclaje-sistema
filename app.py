@@ -5,7 +5,8 @@ import pandas as pd
 
 from src import db
 from src.kpi import get_kpis
-from src.utils_export import kpi_pdf_bytes, to_csv_bytes
+from src.utils_export import kpi_pdf_bytes, to_csv_bytes, HAS_FPDF
+
 
 st.set_page_config(page_title="Sistema de Reciclaje Interno", layout="wide")
 
@@ -51,14 +52,15 @@ if page == "Dashboard":
 
     # ---- Exportación KPI ----
     colA, colB = st.columns(2)
+
     with colA:
-        try:
+        if HAS_FPDF:
             pdf_bytes = kpi_pdf_bytes(
                 "Reporte de KPI",
-                None if periodo_sel == "(Todos)" else periodo_sel,
-                float(kpis["porc_reciclados"]),
-                float(kpis["ahorro_neto"]),
-                float(kpis["porc_cumplimiento"])
+                "TODOS" if periodo_sel == "(Todos)" else periodo_sel,
+                kpis["porc_reciclados"],
+                kpis["ahorro_neto"],
+                kpis["porc_cumplimiento"],
             )
             st.download_button(
                 "⬇️ Exportar KPI (PDF)",
@@ -66,8 +68,12 @@ if page == "Dashboard":
                 file_name=f"kpi_{'todos' if periodo_sel == '(Todos)' else periodo_sel}.pdf",
                 mime="application/pdf",
             )
-        except FileNotFoundError as e:
-            st.warning(str(e))
+        else:
+            st.info(
+                "La exportación a **PDF** no está disponible en este entorno. "
+                "Usa la exportación **CSV** para descargar los datos."
+            )
+
     with colB:
         df_kpi = pd.DataFrame([{
             "periodo": "TODOS" if periodo_sel == "(Todos)" else periodo_sel,
@@ -81,6 +87,7 @@ if page == "Dashboard":
             file_name=f"kpi_{'todos' if periodo_sel == '(Todos)' else periodo_sel}.csv",
             mime="text/csv",
         )
+
 
     st.markdown("---")
     st.subheader("Visualizaciones")
