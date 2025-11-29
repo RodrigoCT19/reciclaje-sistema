@@ -5,7 +5,7 @@ import pandas as pd
 
 from src import db
 from src.kpi import get_kpis
-from src.utils_export import kpi_pdf_bytes, to_csv_bytes  # <- usar SOLO estas utilidades
+from src.utils_export import kpi_pdf_bytes, to_csv_bytes
 
 st.set_page_config(page_title="Sistema de Reciclaje Interno", layout="wide")
 
