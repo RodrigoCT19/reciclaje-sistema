@@ -6,6 +6,7 @@ import pandas as pd
 from src import db
 from src.kpi import get_kpis
 from src.utils_export import kpi_pdf_bytes, to_csv_bytes
+import altair as alt
 
 
 st.set_page_config(page_title="Sistema de Reciclaje Interno", layout="wide")
@@ -117,14 +118,33 @@ if page == "Dashboard":
                 kg_tot=("kg_totales", "sum"),
                 kg_rec=("kg_reciclados", "sum"),
             )
-            grp["% reciclado"] = grp.apply(
+            grp["porc_reciclado"] = grp.apply(
                 lambda r: 0.0 if r["kg_tot"] == 0 else (r["kg_rec"] / r["kg_tot"]) * 100,
                 axis=1,
+            ).round(2)
+
+            # Pasamos el índice a columna para Altair
+            grp = grp.reset_index()
+            grp["mes"] = grp["fecha"].dt.strftime("%Y-%m")
+
+            chart1 = (
+                alt.Chart(grp)
+                .mark_line(point=True)
+                .encode(
+                    x=alt.X("fecha:T", title="Mes", axis=alt.Axis(format="%b %y")),
+                    y=alt.Y("porc_reciclado:Q", title="% reciclado"),
+                    tooltip=[
+                        alt.Tooltip("mes:N", title="Mes"),
+                        alt.Tooltip("kg_tot:Q", title="Kg totales", format=".1f"),
+                        alt.Tooltip("kg_rec:Q", title="Kg reciclados", format=".1f"),
+                        alt.Tooltip("porc_reciclado:Q", title="% reciclado", format=".1f"),
+                    ],
+                )
+                .properties(height=260)
+                .interactive()
             )
-            st.line_chart(
-                grp["% reciclado"],
-                height=260,
-            )
+
+            st.altair_chart(chart1, use_container_width=True)
             st.caption(
                 "Muestra la evolución mensual del porcentaje de residuos reciclados "
                 "respecto al total generado."
@@ -135,15 +155,33 @@ if page == "Dashboard":
     # ---------- Gráfico 2: ahorro neto por mes ----------
     with tab2:
         if not df_c.empty:
-            df_c["mes"] = pd.to_datetime(df_c["mes"] + "-01", errors="coerce")
+            df_c["mes_dt"] = pd.to_datetime(df_c["mes"] + "-01", errors="coerce")
             df_c["ahorro_neto"] = (
                 df_c["ingresos"] + df_c["costos_evitados"] - df_c["costos_gestion"]
             )
-            ahorro = df_c.groupby(pd.Grouper(key="mes", freq="MS"))["ahorro_neto"].sum()
-            st.bar_chart(
-                ahorro,
-                height=260,
+            ahorro = (
+                df_c.groupby(pd.Grouper(key="mes_dt", freq="MS"))["ahorro_neto"]
+                .sum()
+                .reset_index()
             )
+            ahorro["mes"] = ahorro["mes_dt"].dt.strftime("%Y-%m")
+
+            chart2 = (
+                alt.Chart(ahorro)
+                .mark_bar()
+                .encode(
+                    x=alt.X("mes_dt:T", title="Mes", axis=alt.Axis(format="%b %y")),
+                    y=alt.Y("ahorro_neto:Q", title="Ahorro neto (S/.)"),
+                    tooltip=[
+                        alt.Tooltip("mes:N", title="Mes"),
+                        alt.Tooltip("ahorro_neto:Q", title="Ahorro neto (S/.)", format=".2f"),
+                    ],
+                )
+                .properties(height=260)
+                .interactive()
+            )
+
+            st.altair_chart(chart2, use_container_width=True)
             st.caption(
                 "Suma mensual del ahorro neto considerando ingresos por venta, "
                 "costos evitados y costos de gestión."
@@ -151,28 +189,50 @@ if page == "Dashboard":
         else:
             st.info("No hay datos de costos para graficar.")
 
+
     # ---------- Gráfico 3: % cumplimiento checklist ----------
     with tab3:
         if not df_x.empty:
             df_x["fecha"] = pd.to_datetime(df_x["fecha"])
             items = [f"item{i}" for i in range(1, 11)]
-            # convertir Sí/No a 1/0
+
+            # Convertimos Sí / No a 1 / 0
             df_x[items] = df_x[items].applymap(
                 lambda v: 1 if str(v).strip().lower() in ("si", "sí", "1", "true") else 0
             )
-            df_x["% cumplimiento"] = (df_x[items].sum(axis=1) / 10) * 100
-            cump = df_x.groupby(pd.Grouper(key="fecha", freq="MS"))[
-                "% cumplimiento"
-            ].mean()
-            st.line_chart(
-                cump,
-                height=260,
+
+            df_x["porc_cumplimiento"] = (df_x[items].sum(axis=1) / 10) * 100
+            cump = (
+                df_x.groupby(pd.Grouper(key="fecha", freq="MS"))["porc_cumplimiento"]
+                .mean()
+                .reset_index()
             )
+            cump["mes"] = cump["fecha"].dt.strftime("%Y-%m")
+
+            chart3 = (
+                alt.Chart(cump)
+                .mark_line(point=True)
+                .encode(
+                    x=alt.X("fecha:T", title="Mes", axis=alt.Axis(format="%b %y")),
+                    y=alt.Y("porc_cumplimiento:Q", title="% cumplimiento"),
+                    tooltip=[
+                        alt.Tooltip("mes:N", title="Mes"),
+                        alt.Tooltip(
+                            "porc_cumplimiento:Q", title="% cumplimiento", format=".1f"
+                        ),
+                    ],
+                )
+                .properties(height=260)
+                .interactive()
+            )
+
+            st.altair_chart(chart3, use_container_width=True)
             st.caption(
                 "Promedio mensual del porcentaje de ítems cumplidos en el checklist."
             )
         else:
             st.info("No hay datos de checklist para graficar.")
+
 
 
 # =================== RESIDUOS ===================
