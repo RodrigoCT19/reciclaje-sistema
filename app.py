@@ -5,7 +5,8 @@ import pandas as pd
 
 from src import db
 from src.kpi import get_kpis
-from src.utils_export import kpi_pdf_bytes, to_csv_bytes
+from src.utils_export import to_csv_bytes
+
 import altair as alt
 
 
@@ -85,6 +86,8 @@ if page == "Dashboard":
 
 
     with colB:
+        st.markdown("### Exportar indicadores")
+
         df_kpi = pd.DataFrame(
             [
                 {
@@ -95,12 +98,16 @@ if page == "Dashboard":
                 }
             ]
         )
+
         st.download_button(
             "⬇️ Exportar KPI (CSV)",
             data=to_csv_bytes(df_kpi),
             file_name=f"kpi_{'todos' if periodo_sel == '(Todos)' else periodo_sel}.csv",
             mime="text/csv",
         )
+
+        st.caption("La exportación a PDF está desactivada temporalmente en esta versión.")
+
 
     st.markdown("---")
     st.markdown("### Visualizaciones por periodo")

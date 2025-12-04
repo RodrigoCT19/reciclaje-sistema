@@ -97,6 +97,13 @@ def kpi_pdf_bytes(title: str,
     return pdf_bytes
 
 
+# src/utils_export.py
+import pandas as pd
+
 def to_csv_bytes(df: pd.DataFrame) -> bytes:
-    """Convierte un DataFrame a CSV en bytes (UTF-8)."""
-    return df.to_csv(index=False).encode("utf-8")
+    """
+    Convierte un DataFrame a CSV en bytes, con UTF-8 BOM
+    para que Excel lo abra en columnas separadas.
+    """
+    csv_str = df.to_csv(index=False)
+    return csv_str.encode("utf-8-sig")
