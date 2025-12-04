@@ -5,7 +5,7 @@ import pandas as pd
 
 from src import db
 from src.kpi import get_kpis
-from src.utils_export import kpi_pdf_bytes, to_csv_bytes, HAS_FPDF
+from src.utils_export import kpi_pdf_bytes, to_csv_bytes
 
 
 st.set_page_config(page_title="Sistema de Reciclaje Interno", layout="wide")
@@ -30,17 +30,21 @@ def df_checklist(periodo: str | None = None, limit: int = 1000) -> pd.DataFrame:
 # ---------- UI ----------
 st.sidebar.title("Menú")
 page = st.sidebar.radio("Ir a:", ["Dashboard", "Registro de Residuos", "Registro de Costos", "Checklist de Cumplimiento"])
-st.sidebar.info("Proyecto: UCV Los Olivos • Rodrigo")
+st.sidebar.info("Proyecto: Sistema de Recilaje")
 
 def periodo_selectbox(label="Periodo"):
     return st.selectbox(label, ["PRE", "POST"])
 
 # =================== DASHBOARD ===================
+# =================== DASHBOARD ===================
 if page == "Dashboard":
-    st.title("Dashboard de KPI")
+    st.title("Dashboard de KPIs")
 
+    # Filtro de periodo
     periodo_sel = st.selectbox("Ver periodo", ["(Todos)", "PRE", "POST"])
     periodo_arg = None if periodo_sel == "(Todos)" else periodo_sel
+
+    # KPI globales
     kpis = get_kpis(periodo=periodo_arg)
 
     c1, c2, c3 = st.columns(3)
@@ -48,39 +52,40 @@ if page == "Dashboard":
     c2.metric("Ahorro Neto (S/.)", f"{kpis['ahorro_neto']}")
     c3.metric("% Cumplimiento", f"{kpis['porc_cumplimiento']} %")
 
-    st.caption("Tip: llena registros por periodo y usa el selector para comparar PRE vs POST.")
+    st.caption(
+        "Tip: llena registros por periodo y usa el selector para comparar PRE vs POST."
+    )
 
-    # ---- Exportación KPI ----
+    # ---------- Exportar KPI (PDF / CSV) ----------
+    st.markdown("### Exportar indicadores")
     colA, colB = st.columns(2)
 
     with colA:
-        if HAS_FPDF:
-            pdf_bytes = kpi_pdf_bytes(
-                "Reporte de KPI",
-                "TODOS" if periodo_sel == "(Todos)" else periodo_sel,
-                kpis["porc_reciclados"],
-                kpis["ahorro_neto"],
-                kpis["porc_cumplimiento"],
-            )
-            st.download_button(
-                "⬇️ Exportar KPI (PDF)",
-                data=pdf_bytes,
-                file_name=f"kpi_{'todos' if periodo_sel == '(Todos)' else periodo_sel}.pdf",
-                mime="application/pdf",
-            )
-        else:
-            st.info(
-                "La exportación a **PDF** no está disponible en este entorno. "
-                "Usa la exportación **CSV** para descargar los datos."
-            )
+        pdf_bytes = kpi_pdf_bytes(
+            "Reporte de KPI",
+            "TODOS" if periodo_sel == "(Todos)" else periodo_sel,
+            kpis["porc_reciclados"],
+            kpis["ahorro_neto"],
+            kpis["porc_cumplimiento"],
+        )
+        st.download_button(
+            "⬇️ Exportar KPI (PDF)",
+            data=pdf_bytes,
+            file_name=f"kpi_{'todos' if periodo_sel == '(Todos)' else periodo_sel}.pdf",
+            mime="application/pdf",
+        )
 
     with colB:
-        df_kpi = pd.DataFrame([{
-            "periodo": "TODOS" if periodo_sel == "(Todos)" else periodo_sel,
-            "% reciclados": float(kpis["porc_reciclados"]),
-            "ahorro_neto": float(kpis["ahorro_neto"]),
-            "% cumplimiento": float(kpis["porc_cumplimiento"]),
-        }])
+        df_kpi = pd.DataFrame(
+            [
+                {
+                    "periodo": "TODOS" if periodo_sel == "(Todos)" else periodo_sel,
+                    "% reciclados": float(kpis["porc_reciclados"]),
+                    "ahorro_neto": float(kpis["ahorro_neto"]),
+                    "% cumplimiento": float(kpis["porc_cumplimiento"]),
+                }
+            ]
+        )
         st.download_button(
             "⬇️ Exportar KPI (CSV)",
             data=to_csv_bytes(df_kpi),
@@ -88,45 +93,87 @@ if page == "Dashboard":
             mime="text/csv",
         )
 
-
     st.markdown("---")
-    st.subheader("Visualizaciones")
+    st.markdown("### Visualizaciones por periodo")
+
+    # Preparamos los 3 dataframes una sola vez
+    df_r = df_residuos(periodo_arg)
+    df_c = df_costos(periodo_arg)
+    df_x = df_checklist(periodo_arg)
+
+    tab1, tab2, tab3 = st.tabs(
+        [
+            "% Reciclados por mes",
+            "Ahorro neto mensual (S/.)",
+            "% Cumplimiento en checklist",
+        ]
+    )
 
     # ---------- Gráfico 1: tendencia % reciclado por mes ----------
-    df_r = df_residuos(periodo_arg)
-    if not df_r.empty:
-        df_r["fecha"] = pd.to_datetime(df_r["fecha"])
-        grp = df_r.groupby(pd.Grouper(key="fecha", freq="MS")).agg(
-            kg_tot=("kg_totales","sum"), kg_rec=("kg_reciclados","sum")
-        )
-        grp["% reciclado"] = grp.apply(
-            lambda r: 0.0 if r["kg_tot"] == 0 else (r["kg_rec"]/r["kg_tot"])*100, axis=1
-        )
-        st.line_chart(grp["% reciclado"], height=260)
-    else:
-        st.info("No hay datos de residuos para graficar.")
+    with tab1:
+        if not df_r.empty:
+            df_r["fecha"] = pd.to_datetime(df_r["fecha"])
+            grp = df_r.groupby(pd.Grouper(key="fecha", freq="MS")).agg(
+                kg_tot=("kg_totales", "sum"),
+                kg_rec=("kg_reciclados", "sum"),
+            )
+            grp["% reciclado"] = grp.apply(
+                lambda r: 0.0 if r["kg_tot"] == 0 else (r["kg_rec"] / r["kg_tot"]) * 100,
+                axis=1,
+            )
+            st.line_chart(
+                grp["% reciclado"],
+                height=260,
+            )
+            st.caption(
+                "Muestra la evolución mensual del porcentaje de residuos reciclados "
+                "respecto al total generado."
+            )
+        else:
+            st.info("No hay datos de residuos para graficar.")
 
     # ---------- Gráfico 2: ahorro neto por mes ----------
-    df_c = df_costos(periodo_arg)
-    if not df_c.empty:
-        df_c["mes"] = pd.to_datetime(df_c["mes"] + "-01", errors="coerce")
-        df_c["ahorro_neto"] = df_c["ingresos"] + df_c["costos_evitados"] - df_c["costos_gestion"]
-        ahorro = df_c.groupby(pd.Grouper(key="mes", freq="MS"))["ahorro_neto"].sum()
-        st.bar_chart(ahorro, height=260)
-    else:
-        st.info("No hay datos de costos para graficar.")
+    with tab2:
+        if not df_c.empty:
+            df_c["mes"] = pd.to_datetime(df_c["mes"] + "-01", errors="coerce")
+            df_c["ahorro_neto"] = (
+                df_c["ingresos"] + df_c["costos_evitados"] - df_c["costos_gestion"]
+            )
+            ahorro = df_c.groupby(pd.Grouper(key="mes", freq="MS"))["ahorro_neto"].sum()
+            st.bar_chart(
+                ahorro,
+                height=260,
+            )
+            st.caption(
+                "Suma mensual del ahorro neto considerando ingresos por venta, "
+                "costos evitados y costos de gestión."
+            )
+        else:
+            st.info("No hay datos de costos para graficar.")
 
-    # ---------- Gráfico 3: % cumplimiento por fecha ----------
-    df_x = df_checklist(periodo_arg)
-    if not df_x.empty:
-        df_x["fecha"] = pd.to_datetime(df_x["fecha"])
-        items = [f"item{i}" for i in range(1,11)]
-        df_x[items] = df_x[items].applymap(lambda v: 1 if str(v).strip().lower() in ("si","sí","1","true") else 0)
-        df_x["% cumplimiento"] = (df_x[items].sum(axis=1) / 10) * 100
-        cump = df_x.groupby(pd.Grouper(key="fecha", freq="MS"))["% cumplimiento"].mean()
-        st.line_chart(cump, height=260)
-    else:
-        st.info("No hay datos de checklist para graficar.")
+    # ---------- Gráfico 3: % cumplimiento checklist ----------
+    with tab3:
+        if not df_x.empty:
+            df_x["fecha"] = pd.to_datetime(df_x["fecha"])
+            items = [f"item{i}" for i in range(1, 11)]
+            # convertir Sí/No a 1/0
+            df_x[items] = df_x[items].applymap(
+                lambda v: 1 if str(v).strip().lower() in ("si", "sí", "1", "true") else 0
+            )
+            df_x["% cumplimiento"] = (df_x[items].sum(axis=1) / 10) * 100
+            cump = df_x.groupby(pd.Grouper(key="fecha", freq="MS"))[
+                "% cumplimiento"
+            ].mean()
+            st.line_chart(
+                cump,
+                height=260,
+            )
+            st.caption(
+                "Promedio mensual del porcentaje de ítems cumplidos en el checklist."
+            )
+        else:
+            st.info("No hay datos de checklist para graficar.")
+
 
 # =================== RESIDUOS ===================
 if page == "Registro de Residuos":
