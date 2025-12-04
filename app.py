@@ -60,51 +60,25 @@ if page == "Dashboard":
 
     # ---------- Exportar KPI (PDF / CSV) ----------
     st.markdown("### Exportar indicadores")
-    colA, colB = st.columns(2)
 
-    with colA:
-        pdf_bytes = kpi_pdf_bytes(
-            "Reporte de KPI",
-            "TODOS" if periodo_sel == "(Todos)" else periodo_sel,
-            kpis["porc_reciclados"],
-            kpis["ahorro_neto"],
-            kpis["porc_cumplimiento"],
-        )
+    df_kpi = pd.DataFrame(
+        [
+            {
+                "periodo": "TODOS" if periodo_sel == "(Todos)" else periodo_sel,
+                "% reciclados": float(kpis["porc_reciclados"]),
+                "ahorro_neto": float(kpis["ahorro_neto"]),
+                "% cumplimiento": float(kpis["porc_cumplimiento"]),
+            }
+        ]
+    )
+    
+    st.download_button(
+        "⬇️ Exportar KPI (CSV)",
+        data=to_csv_bytes(df_kpi),
+        file_name=f"kpi_{'todos' if periodo_sel == '(Todos)' else periodo_sel}.csv",
+        mime="text/csv",
+    )
 
-        if pdf_bytes is None:
-            st.info(
-                "La exportación a PDF no está disponible en este entorno. "
-                "Usa la exportación CSV para descargar los datos."
-            )
-        else:
-            st.download_button(
-                "⬇️ Exportar KPI (PDF)",
-                data=pdf_bytes,
-                file_name=f"kpi_{'todos' if periodo_sel == '(Todos)' else periodo_sel}.pdf",
-                mime="application/pdf",
-            )
-
-
-    with colB:
-        st.markdown("### Exportar indicadores")
-
-        df_kpi = pd.DataFrame(
-            [
-                {
-                    "periodo": "TODOS" if periodo_sel == "(Todos)" else periodo_sel,
-                    "% reciclados": float(kpis["porc_reciclados"]),
-                    "ahorro_neto": float(kpis["ahorro_neto"]),
-                    "% cumplimiento": float(kpis["porc_cumplimiento"]),
-                }
-            ]
-        )
-
-        st.download_button(
-            "⬇️ Exportar KPI (CSV)",
-            data=to_csv_bytes(df_kpi),
-            file_name=f"kpi_{'todos' if periodo_sel == '(Todos)' else periodo_sel}.csv",
-            mime="text/csv",
-        )
 
         st.caption("La exportación a PDF está desactivada temporalmente en esta versión.")
 
