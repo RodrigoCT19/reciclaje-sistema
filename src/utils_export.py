@@ -57,3 +57,10 @@ def kpi_pdf_bytes(titulo: str, periodo: str, porc, ahorro, cump) -> bytes:
     else:
         # Versiones nuevas devuelven bytearray/bytes
         return bytes(data)
+
+try:
+    from fpdf import FPDF
+    HAS_FPDF = True
+except Exception:
+    FPDF = None
+    HAS_FPDF = False
