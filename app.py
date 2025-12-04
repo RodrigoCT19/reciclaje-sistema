@@ -30,7 +30,7 @@ def df_checklist(periodo: str | None = None, limit: int = 1000) -> pd.DataFrame:
 # ---------- UI ----------
 st.sidebar.title("Menú")
 page = st.sidebar.radio("Ir a:", ["Dashboard", "Registro de Residuos", "Registro de Costos", "Checklist de Cumplimiento"])
-st.sidebar.info("Proyecto: Sistema de Recilaje")
+st.sidebar.info("Proyecto: Sistema de Reciclaje")
 
 def periodo_selectbox(label="Periodo"):
     return st.selectbox(label, ["PRE", "POST"])
@@ -177,27 +177,61 @@ if page == "Dashboard":
 
 # =================== RESIDUOS ===================
 if page == "Registro de Residuos":
-    st.title("Registro de Residuos")
-    tab1, tab2, tab3 = st.tabs(["Registrar", "Administrar (Editar/Eliminar)", "Exportar"])
+        st.title("Registro de Residuos")
+        tab1, tab2, tab3 = st.tabs(["Registrar", "Administrar (Editar/Eliminar)", "Exportar"])
 
-    # ---- Registrar ----
-    with tab1:
-        with st.form("form_residuos", clear_on_submit=True):
-            fecha = st.date_input("Fecha", date.today())
-            proceso = st.selectbox("Proceso", ["Corte", "Soldadura", "Ensamble"])
-            lote = st.text_input("Lote")
-            kg_totales = st.number_input("Kg Totales", min_value=0.0, step=0.1)
-            kg_reciclados = st.number_input("Kg Reciclados", min_value=0.0, step=0.1)
-            destino = st.selectbox("Destino", ["Reúso", "Reciclaje", "Venta"])
-            responsable = st.text_input("Responsable")
-            periodo = periodo_selectbox()
-            submitted = st.form_submit_button("Guardar")
-        if submitted:
-            if kg_reciclados > kg_totales:
-                st.error("Los Kg reciclados no pueden ser mayores que los Kg totales.")
-            else:
-                db.insert_residuo(str(fecha), proceso, lote, float(kg_totales), float(kg_reciclados), destino, responsable, periodo)
-                st.success("Registro guardado ✅")
+        # ---- Registrar ----
+        with tab1:
+            with st.form("form_residuos", clear_on_submit=True):
+                # Fila 1: Fecha / Periodo
+                col1, col2 = st.columns(2)
+                with col1:
+                    fecha = st.date_input("Fecha", date.today())
+                with col2:
+                    periodo = periodo_selectbox()
+
+                # Fila 2: Proceso / Lote
+                col3, col4 = st.columns(2)
+                with col3:
+                    proceso = st.selectbox("Proceso", ["Corte", "Soldadura", "Ensamble"])
+                with col4:
+                    lote = st.text_input("Lote")
+
+                # Fila 3: Kg Totales / Kg Reciclados
+                col5, col6 = st.columns(2)
+                with col5:
+                    kg_totales = st.number_input(
+                        "Kg Totales", min_value=0.0, step=0.1
+                    )
+                with col6:
+                    kg_reciclados = st.number_input(
+                        "Kg Reciclados", min_value=0.0, step=0.1
+                    )
+
+                # Fila 4: Destino / Responsable
+                col7, col8 = st.columns(2)
+                with col7:
+                    destino = st.selectbox("Destino", ["Reúso", "Reciclaje", "Venta"])
+                with col8:
+                    responsable = st.text_input("Responsable")
+
+                submitted = st.form_submit_button("Guardar")
+
+            if submitted:
+                if kg_reciclados > kg_totales:
+                    st.error("Los Kg reciclados no pueden ser mayores que los Kg totales.")
+                else:
+                    db.insert_residuo(
+                        str(fecha),
+                        proceso,
+                        lote,
+                        float(kg_totales),
+                        float(kg_reciclados),
+                        destino,
+                        responsable,
+                        periodo,
+                    )
+                    st.success("Registro guardado ✅")
 
 
         st.subheader("Últimos registros")
@@ -209,56 +243,56 @@ if page == "Registro de Residuos":
         
 
     # ---- Administrar ----
-    with tab2:
-        st.subheader("Editar o eliminar")
-        rows = db.list_residuos(limit=100, with_id=True)
-        if not rows:
-            st.info("No hay registros.")
-        else:
-            opciones = {f"ID {r[0]} • {r[1]} • {r[2]} • {r[3]}kg": r[0] for r in rows}
-            rid = st.selectbox("Selecciona un registro", list(opciones.keys()))
-            sel_id = opciones[rid]
-            rec = db.get_residuo_by_id(sel_id)
-            if rec:
-                _id, fecha, proceso, lote, kg_totales, kg_reciclados, destino, responsable, periodo = rec
-                from datetime import date as _d
-                with st.form("edit_residuo"):
-                    fecha = st.date_input("Fecha", _d.fromisoformat(fecha))
-                    proceso = st.selectbox("Proceso", ["Corte", "Soldadura", "Ensamble"], index=["Corte","Soldadura","Ensamble"].index(proceso))
-                    lote = st.text_input("Lote", value=lote or "")
-                    kg_totales = st.number_input("Kg Totales", min_value=0.0, step=0.1, value=float(kg_totales))
-                    kg_reciclados = st.number_input("Kg Reciclados", min_value=0.0, step=0.1, value=float(kg_reciclados))
-                    destino = st.selectbox("Destino", ["Reúso","Reciclaje","Venta"], index=["Reúso","Reciclaje","Venta"].index(destino))
-                    responsable = st.text_input("Responsable", value=responsable or "")
-                    periodo = st.selectbox("Periodo", ["PRE","POST"], index=["PRE","POST"].index(periodo or "PRE"))
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        upd = st.form_submit_button("Actualizar ✅")
-                    with c2:
-                        delb = st.form_submit_button("Eliminar 🗑️")
-                if upd:
-                    if kg_reciclados > kg_totales:
-                        st.error("Los Kg reciclados no pueden ser mayores que los Kg totales.")
-                    else:
-                        db.update_residuo(sel_id, str(fecha), proceso, lote, float(kg_totales), float(kg_reciclados), destino, responsable, periodo)
-                        st.success("Registro actualizado")
-                if delb:
-                    db.delete_residuo(sel_id)
-                    st.success("Registro eliminado. Refresca la pestaña.")
+        with tab2:
+            st.subheader("Editar o eliminar")
+            rows = db.list_residuos(limit=100, with_id=True)
+            if not rows:
+                st.info("No hay registros.")
+            else:
+                opciones = {f"ID {r[0]} • {r[1]} • {r[2]} • {r[3]}kg": r[0] for r in rows}
+                rid = st.selectbox("Selecciona un registro", list(opciones.keys()))
+                sel_id = opciones[rid]
+                rec = db.get_residuo_by_id(sel_id)
+                if rec:
+                    _id, fecha, proceso, lote, kg_totales, kg_reciclados, destino, responsable, periodo = rec
+                    from datetime import date as _d
+                    with st.form("edit_residuo"):
+                        fecha = st.date_input("Fecha", _d.fromisoformat(fecha))
+                        proceso = st.selectbox("Proceso", ["Corte", "Soldadura", "Ensamble"], index=["Corte","Soldadura","Ensamble"].index(proceso))
+                        lote = st.text_input("Lote", value=lote or "")
+                        kg_totales = st.number_input("Kg Totales", min_value=0.0, step=0.1, value=float(kg_totales))
+                        kg_reciclados = st.number_input("Kg Reciclados", min_value=0.0, step=0.1, value=float(kg_reciclados))
+                        destino = st.selectbox("Destino", ["Reúso","Reciclaje","Venta"], index=["Reúso","Reciclaje","Venta"].index(destino))
+                        responsable = st.text_input("Responsable", value=responsable or "")
+                        periodo = st.selectbox("Periodo", ["PRE","POST"], index=["PRE","POST"].index(periodo or "PRE"))
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            upd = st.form_submit_button("Actualizar ✅")
+                        with c2:
+                            delb = st.form_submit_button("Eliminar 🗑️")
+                    if upd:
+                        if kg_reciclados > kg_totales:
+                            st.error("Los Kg reciclados no pueden ser mayores que los Kg totales.")
+                        else:
+                            db.update_residuo(sel_id, str(fecha), proceso, lote, float(kg_totales), float(kg_reciclados), destino, responsable, periodo)
+                            st.success("Registro actualizado")
+                    if delb:
+                        db.delete_residuo(sel_id)
+                        st.success("Registro eliminado. Refresca la pestaña.")
 
     # ---- Exportar ----
-    with tab3:
-        st.subheader("Exportar Registros de Residuos")
-        filtro = st.selectbox("Filtrar por periodo", ["(Todos)","PRE","POST"])
-        per = None if filtro == "(Todos)" else filtro
-        df = df_residuos(per)
-        st.dataframe(df, use_container_width=True)
-        st.download_button(
-            "⬇️ Exportar Residuos (CSV)",
-            data=to_csv_bytes(df),
-            file_name=f"residuos_{'todos' if per is None else per}.csv",
-            mime="text/csv",
-        )
+        with tab3:
+            st.subheader("Exportar Registros de Residuos")
+            filtro = st.selectbox("Filtrar por periodo", ["(Todos)","PRE","POST"])
+            per = None if filtro == "(Todos)" else filtro
+            df = df_residuos(per)
+            st.dataframe(df, use_container_width=True)
+            st.download_button(
+                "⬇️ Exportar Residuos (CSV)",
+                data=to_csv_bytes(df),
+                file_name=f"residuos_{'todos' if per is None else per}.csv",
+                mime="text/csv",
+            )
 
 # =================== COSTOS ===================
 if page == "Registro de Costos":
@@ -268,15 +302,28 @@ if page == "Registro de Costos":
     # ---- Registrar ----
     with tab1:
         with st.form("form_costos", clear_on_submit=True):
-            mes = st.text_input("Mes (YYYY-MM)")
-            ingresos = st.number_input("Ingresos por venta (S/.)", min_value=0.0, step=0.1)
-            evitados = st.number_input("Costos evitados (S/.)", min_value=0.0, step=0.1)
-            gestion = st.number_input("Costos de gestión (S/.)", min_value=0.0, step=0.1)
-            periodo = periodo_selectbox()
+            c1, c2 = st.columns(2)
+            with c1:
+                mes = st.text_input("Mes (YYYY-MM)")
+            with c2:
+                periodo = periodo_selectbox()
+
+            c3, c4 = st.columns(2)
+            with c3:
+                ingresos = st.number_input("Ingresos por venta (S/.)", min_value=0.0, step=0.1)
+            with c4:
+                evitados = st.number_input("Costos evitados (S/.)", min_value=0.0, step=0.1)
+
+            c5, _ = st.columns([1, 1])
+            with c5:
+                gestion = st.number_input("Costos de gestión (S/.)", min_value=0.0, step=0.1)
+
             submitted = st.form_submit_button("Guardar")
+
         if submitted:
             db.insert_costos(mes, float(ingresos), float(evitados), float(gestion), periodo)
             st.success("Registro de costos guardado ✅")
+
 
         st.subheader("Últimos registros")
         rows = db.list_costos(limit=20, with_id=False)
@@ -336,16 +383,40 @@ if page == "Checklist de Cumplimiento":
     # ---- Registrar ----
     with tab1:
         with st.form("form_checklist", clear_on_submit=True):
-            fecha = st.date_input("Fecha", date.today())
-            area = st.selectbox("Área/Proceso", ["Corte","Soldadura","Ensamble","Almacén"])
-            responsable = st.text_input("Responsable")
+            c1, c2 = st.columns(2)
+            with c1:
+                fecha = st.date_input("Fecha", date.today())
+                area = st.selectbox("Área/Proceso", ["Corte", "Soldadura", "Ensamble", "Almacén"])
+            with c2:
+                responsable = st.text_input("Responsable")
+                periodo = periodo_selectbox()
+
             st.markdown("Marca **Sí** o **No** para cada ítem:")
-            items = [st.selectbox(f"Ítem {i}", opciones_SN, key=f"i{i}") for i in range(1,11)]
-            periodo = periodo_selectbox()
+
+            opciones_SN = ["Sí", "No"]
+            col_izq, col_der = st.columns(2)
+            items = []
+
+            # Ítems 1 al 5 en la columna izquierda
+            for i in range(1, 6):
+                with col_izq:
+                    items.append(
+                        st.selectbox(f"Ítem {i}", opciones_SN, key=f"i{i}")
+                    )
+
+            # Ítems 6 al 10 en la columna derecha
+            for i in range(6, 11):
+                with col_der:
+                    items.append(
+                        st.selectbox(f"Ítem {i}", opciones_SN, key=f"i{i}")
+                    )
+
             submitted = st.form_submit_button("Guardar")
+
         if submitted:
             db.insert_checklist(str(fecha), area, responsable, items, periodo)
             st.success("Checklist guardado ✅")
+
 
         st.subheader("Últimos registros")
         rows = db.list_checklist(limit=20, with_id=False)
