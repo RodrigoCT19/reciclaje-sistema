@@ -58,9 +58,45 @@ def kpi_pdf_bytes(titulo: str, periodo: str, porc, ahorro, cump) -> bytes:
         # Versiones nuevas devuelven bytearray/bytes
         return bytes(data)
 
+# src/utils_export.py
+import pandas as pd
+
+# Intentar importar FPDF (de fpdf2)
 try:
     from fpdf import FPDF
     HAS_FPDF = True
-except Exception:
-    FPDF = None
+except ImportError:
     HAS_FPDF = False
+
+
+def kpi_pdf_bytes(title: str,
+                  periodo: str,
+                  porc_reciclados: float,
+                  ahorro_neto: float,
+                  porc_cumplimiento: float) -> bytes | None:
+    """Genera el PDF de KPIs. Si no hay FPDF, devuelve None."""
+    if not HAS_FPDF:
+        return None
+
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, title, ln=True)
+
+    pdf.set_font("Helvetica", "", 12)
+    pdf.ln(5)
+    pdf.cell(0, 8, f"Periodo: {periodo}", ln=True)
+    pdf.cell(0, 8, f"% Reciclados: {porc_reciclados} %", ln=True)
+    pdf.cell(0, 8, f"Ahorro Neto (S/.): {ahorro_neto}", ln=True)
+    pdf.cell(0, 8, f"% Cumplimiento: {porc_cumplimiento} %", ln=True)
+
+    # Devolver bytes del PDF
+    pdf_bytes = pdf.output(dest="S").encode("latin-1")
+    return pdf_bytes
+
+
+def to_csv_bytes(df: pd.DataFrame) -> bytes:
+    """Convierte un DataFrame a CSV en bytes (UTF-8)."""
+    return df.to_csv(index=False).encode("utf-8")

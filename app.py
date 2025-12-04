@@ -69,12 +69,20 @@ if page == "Dashboard":
             kpis["ahorro_neto"],
             kpis["porc_cumplimiento"],
         )
-        st.download_button(
-            "⬇️ Exportar KPI (PDF)",
-            data=pdf_bytes,
-            file_name=f"kpi_{'todos' if periodo_sel == '(Todos)' else periodo_sel}.pdf",
-            mime="application/pdf",
-        )
+
+        if pdf_bytes is None:
+            st.info(
+                "La exportación a PDF no está disponible en este entorno. "
+                "Usa la exportación CSV para descargar los datos."
+            )
+        else:
+            st.download_button(
+                "⬇️ Exportar KPI (PDF)",
+                data=pdf_bytes,
+                file_name=f"kpi_{'todos' if periodo_sel == '(Todos)' else periodo_sel}.pdf",
+                mime="application/pdf",
+            )
+
 
     with colB:
         df_kpi = pd.DataFrame(
