@@ -58,9 +58,9 @@ if page == "Dashboard":
         "Tip: llena registros por periodo y usa el selector para comparar PRE vs POST."
     )
 
-    # ---------- Exportar KPI (PDF / CSV) ----------
+    # ---------- Exportar KPI (solo CSV por ahora) ----------
     st.markdown("### Exportar indicadores")
-
+    
     df_kpi = pd.DataFrame(
         [
             {
@@ -78,9 +78,9 @@ if page == "Dashboard":
         file_name=f"kpi_{'todos' if periodo_sel == '(Todos)' else periodo_sel}.csv",
         mime="text/csv",
     )
+    
+    st.caption("La exportación a PDF está desactivada temporalmente en esta versión.")
 
-
-        st.caption("La exportación a PDF está desactivada temporalmente en esta versión.")
 
 
     st.markdown("---")
